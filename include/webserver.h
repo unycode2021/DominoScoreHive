@@ -12,18 +12,6 @@
 
 extern bool isConfigured;
 // Global state management
-struct PlayerConfig
-{
-    char name[32];
-    int score;
-};
-
-struct TeamConfig
-{
-    char name[32];
-    int score;
-    PlayerConfig players[2];
-};
 
 TeamConfig teamA;
 TeamConfig teamB;
@@ -103,7 +91,7 @@ void setupWebServer()
     // Team A Controls
     response->print("<div class='team-box'>");
     response->printf("<h2>%s</h2>", teamA.name);
-    response->printf("<h3>Current Score: <span id='scoreA'>%d</span></h3>", teamA.score);
+    response->printf("<h3>Current Score: <span id='scoreA'>%s</span></h3>", teamA.score);
     response->print("<button class='score-btn' onclick='updateScore(\"A\", 1)'>+1</button>");
     response->print("<button class='score-btn' onclick='updateScore(\"A\", -1)'>-1</button>");
     response->print("</div>");
@@ -111,7 +99,7 @@ void setupWebServer()
     // Team B Controls
     response->print("<div class='team-box'>");
     response->printf("<h2>%s</h2>", teamB.name);
-    response->printf("<h3>Current Score: <span id='scoreB'>%d</span></h3>", teamB.score);
+    response->printf("<h3>Current Score: <span id='scoreB'>%s</span></h3>", teamB.score);
     response->print("<button class='score-btn' onclick='updateScore(\"B\", 1)'>+1</button>");
     response->print("<button class='score-btn' onclick='updateScore(\"B\", -1)'>-1</button>");
     response->print("</div>");
@@ -134,7 +122,7 @@ void setupWebServer()
     response->print("</script>");
     
     response->print("</body></html>");
-    request->send(response); });
+                request->send(response); });
 
     server.on("/players", HTTP_GET, [](AsyncWebServerRequest *request)
               {
@@ -155,29 +143,35 @@ void setupWebServer()
 
     server.on("/api/init-config", HTTP_POST, [](AsyncWebServerRequest *request)
               {
-    if (request->hasParam("teamA", true) && request->hasParam("teamB", true)) {
-        String teamAName = request->getParam("teamA", true)->value();
-        String teamBName = request->getParam("teamB", true)->value();
-        
-        // Store team names
-        strncpy(teamA.name, teamAName.c_str(), sizeof(teamA.name));
-        strncpy(teamB.name, teamBName.c_str(), sizeof(teamB.name));
-        
-        // Initialize scores to 0
-        teamA.score = 0;
-        teamB.score = 0;
-        
-        // Initialize the LED matrix display for both teams
-        updateTeamScore("A", 0);  // This will set up Team A's display
-        updateTeamScore("B", 0);  // This will set up Team B's display
-        
-        // Mark as configured
-        isConfigured = true;
+            if (request->hasParam("teamA", true) && request->hasParam("teamB", true)) {
+                String teamAName = request->getParam("teamA", true)->value();
+                String teamBName = request->getParam("teamB", true)->value();
+                
+                // Store team names
+                strncpy(teamA.name, teamAName.c_str(), sizeof(teamA.name));
+                strncpy(teamB.name, teamBName.c_str(), sizeof(teamB.name));
+                
+                // Initialize scores to 0
+                const char *zero = "0";
 
-        AsyncWebServerResponse *response = request->beginResponse(302);
-        response->addHeader("Location", "/scores");
-        request->send(response);
-    } });
+                strncpy(teamA.score, zero, sizeof(zero));
+                strncpy(teamB.score, zero, sizeof(zero));
+                // Initialize team colors defaults for now until user configuration is added
+                teamA.teamColor = CRGB::Blue;
+                teamA.scoreColor = CRGB::Blue;
+                teamB.teamColor = CRGB::Green;
+                teamB.scoreColor = CRGB::Green;
+                // Initialize the LED matrix display for both teams
+                updateTeam("A");  // This will set up Team A's display
+                updateTeam("B");  // This will set up Team B's display
+                
+                // Mark as configured
+                isConfigured = true;
+
+                AsyncWebServerResponse *response = request->beginResponse(302);
+                response->addHeader("Location", "/scores");
+                request->send(response);
+            } });
 
     // Team configuration endpoint
     server.on("/api/teams", HTTP_POST, [](AsyncWebServerRequest *request)
@@ -197,13 +191,26 @@ void setupWebServer()
     // Score update endpoint
     server.on("/api/score/update", HTTP_POST, [](AsyncWebServerRequest *request)
               {
-           if (request->hasParam("team", true) && request->hasParam("score", true)) {
-               String team = request->getParam("team", true)->value();
-               int score = request->getParam("score", true)->value().toInt();
-
-               updateTeamScore(team.c_str(), score);
-               request->send(200, "application/json", "{\"status\":\"updated\"}");
-           } });
+    if (request->hasParam("team", true) && request->hasParam("score", true)) {
+        String team = request->getParam("team", true)->value();
+        String scoreChange = request->getParam("score", true)->value();
+        int change = scoreChange.toInt();
+        
+        if(team == "A") {
+            int currentScore = String(teamA.score).toInt();
+            currentScore += change;
+            String newScore = String(currentScore);
+            strncpy(teamA.score, newScore.c_str(), sizeof(teamA.score));
+        } else if (team == "B") {
+            int currentScore = String(teamB.score).toInt();
+            currentScore += change;
+            String newScore = String(currentScore);
+            strncpy(teamB.score, newScore.c_str(), sizeof(teamB.score));
+        }
+        
+        updateTeam(team.c_str());
+        request->send(200, "application/json", "{\"status\":\"updated\"}");
+    } });
 
     // Player management endpoint
     server.on("/api/players", HTTP_POST, [](AsyncWebServerRequest *request)
@@ -227,19 +234,5 @@ void setupWebServer()
                }
                request->send(200, "application/json", "{\"status\":\"players_updated\"}");
            } });
-
-    // Get current configuration endpoint
-    server.on("/api/config", HTTP_GET, [](AsyncWebServerRequest *request)
-              {
-           JsonDocument doc;
-           JsonObject config = doc.to<JsonObject>();
-        
-           config["teamA"]["name"] = teamA.name;
-           config["teamA"]["score"] = teamA.score;
-           config["teamB"]["name"] = teamB.name;
-           config["teamB"]["score"] = teamB.score;
-        
-           String response;
-           serializeJson(doc, response);
-           request->send(200, "application/json", response); });
+       
 }

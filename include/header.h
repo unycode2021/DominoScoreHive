@@ -34,6 +34,52 @@ struct FontMapping
        const uint8_t (*font)[]; // Pointer to the font array
 };
 
+struct TextConfig {
+       CRGB teamColor;
+       CRGB scoreColor;
+       FontSize teamSize;
+       FontSize scoreSize;
+       int wordSpacing;
+       int charSpacing;
+       bool useGradient;
+       CRGB gradientStart;
+       CRGB gradientEnd;
+       CRGB *charColors;
+       int colorsLength;
+};
+
+struct PlayerConfig
+{
+       char pid[32]; // platform id::Domino101, DominoScores, ScoreHive...etc....
+       char tid[32]; // team id
+       char alias[32];
+       char name[155];
+       char score[32];
+};
+
+struct TeamConfig
+{
+       char pid[32];
+       char name[32];
+       char score[32];
+       TextConfig settings;
+       PlayerConfig players[2];
+};
+
+struct TableConfig
+{
+       char pid[32];
+       char tag[32];
+       PlayerConfig players[4];
+};
+
+struct MatchConfig
+{
+       char pid[32];
+       char name[155];
+       TableConfig (*tables)[];
+};
+
 struct ScrollingText
 {
        const char *scrollingText;

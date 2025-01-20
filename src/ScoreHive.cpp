@@ -267,7 +267,7 @@ void updateAsyncScrollingText(ScrollingText &text)
     int charWidth = charWidthMap[text.scrollSize] + charSpacing;
     int charHeight = charHeightMap[text.scrollSize];
     int scrollingTextLength = strlen(text.scrollingText);
-    int colStartOffset = COLS - text.startY;
+    int colStartOffset = text.startY;
     int rowStartOffset = ROWS - text.startX;
     int scrollDistance = (text.scrollDirection == LEFT_TO_RIGHT || text.scrollDirection == RIGHT_TO_LEFT)
                              ? scrollingTextLength * charWidth + colStartOffset
@@ -538,7 +538,7 @@ void setup()
   }
 
   WiFi.softAP("ScoreHive-Setup");
-  WiFi.setHostname("ScoreHive");
+  WiFi.setHostname("score_hive");
   dnsServer.start(53, "*", WiFi.softAPIP());
   // Add this line to initialize all web routes
   setupWebServer();
