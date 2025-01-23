@@ -1,6 +1,6 @@
-// This file includes the function prototypes for the LED mapping functions
 #ifndef HEADER_H
 #define HEADER_H
+#define VERSION 2412040
 
 #include <map>
 #include <Arduino.h>
@@ -35,17 +35,24 @@ struct FontMapping
 };
 
 struct TextConfig {
-       CRGB teamColor;
-       CRGB scoreColor;
-       FontSize teamSize;
-       FontSize scoreSize;
+       FontSize fontSize;
+       int startRow;
+       int startCol;
        int wordSpacing;
        int charSpacing;
-       bool useGradient;
-       CRGB gradientStart;
+       CRGB color;
        CRGB gradientEnd;
        CRGB *charColors;
+       bool useGradient;
        int colorsLength;
+       bool animate;
+};
+
+struct ScoreConfig
+{
+       char pid[32];
+       char score[32];
+       TextConfig settings;
 };
 
 struct PlayerConfig
@@ -54,14 +61,16 @@ struct PlayerConfig
        char tid[32]; // team id
        char alias[32];
        char name[155];
-       char score[32];
+       ScoreConfig score;
+       TextConfig settings;
 };
+
 
 struct TeamConfig
 {
        char pid[32];
        char name[32];
-       char score[32];
+       ScoreConfig score;
        TextConfig settings;
        PlayerConfig players[2];
 };
@@ -78,34 +87,20 @@ struct MatchConfig
        char pid[32];
        char name[155];
        TableConfig (*tables)[];
+       TextConfig settings;
 };
 
 struct ScrollingText
 {
        const char *scrollingText;
-       const char *staticText;
-       CRGB scrollColor;
-       CRGB staticColor;
-       FontSize scrollSize;
-       FontSize staticSize;
+       TextConfig config;
        int scrollSpeed;
-       int startX;
-       int startY;
        ScrollDirection scrollDirection;
        int scrollTo;
-       int staticStartX;
-       int staticStartY;
        bool wrapAround;
        int offset; // Tracks the current offset position
-       int wordSpacing;
-       int charSpacing;
        unsigned long lastUpdate;
        bool isComplete;    // Indicates when the scrolling is complete
-       CRGB *charColors;   // Array of colors for each character
-       bool useGradient;   // Flag to enable gradient effect
-       CRGB gradientStart; // Starting color for gradient
-       CRGB gradientEnd;   // Ending color for gradient
-       int colorsLength;
 };
 
 
@@ -125,34 +120,24 @@ CRGB getCharsColorORDefault(CRGB *charColors, int charIndex, CRGB defaultColor, 
 void clearScreen();
 void clearScreen(int startRow, int endRow, int startCol, int endCol);
 void drawToScreen();
+void setupWebServer();
 void drawChar(char character, int startRow, int startCol, CRGB color, FontSize size, bool useGradient, CRGB gradientStart, CRGB gradientEnd);
-void displayStaticText(const char *text, int startRow, int startCol, CRGB color, FontSize size, int charSpacing, int wordSpacing, CRGB *charColors, int colorsLength, bool useGradient, CRGB gradientStart, CRGB gradientEnd);
+void displayStaticText(const char *text, TextConfig config);
 const char *configureScrollingText(const char *text, ScrollDirection direction);
-// void initAsyncScrollingText(ScrollingText &text, const char *scrollingText, const char *staticText, CRGB scrollColor, CRGB staticColor, FontSize scrollSize, FontSize staticSize, int scrollSpeed, int startX, int startY, ScrollDirection scrollDirection, int scrollTo, int staticStartX, int staticStartY, bool wrapAround, int charSpacing, int wordSpacing, CRGB *charColors, int colorsLength, bool useGradient, CRGB gradientStart, CRGB gradientEnd);
 
 void initAsyncScrollingText(
+        ScrollingText &text,
+        const char *scrollingText,
+        TextConfig config,
+        int scrollSpeed,
+        ScrollDirection scrollDirection,
+        int scrollTo = -1,
+        bool wrapAround = false);
+
+void initStaticText(
     ScrollingText &text,
-    const char *scrollingText,
     const char *staticText,
-    CRGB scrollColor,
-    CRGB staticColor,
-    FontSize scrollSize,
-    FontSize staticSize,
-    int scrollSpeed,
-    int startX,
-    int startY,
-    ScrollDirection scrollDirection,
-    int scrollTo = -1,
-    int staticStartX = 0,
-    int staticStartY = 0,
-    bool wrapAround = false,
-    int charSpacing = -1,
-    int wordSpacing = 1,
-    CRGB *charColors = nullptr,
-    int colorsLength = 0,
-    bool useGradient = false,
-    CRGB gradientStart = CRGB::Black,
-    CRGB gradientEnd = CRGB::Black);
+    TextConfig config);
 
 void updateScrollingText(ScrollingText &text);
 

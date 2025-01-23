@@ -1,5 +1,6 @@
 #include "header.h"
 #include "webserver.h"
+// #include "wifi_manager.h"
 // Constants
 #define NUM_LEDS 300  // Total LEDs
 #define LED_PIN 2     // Data pin
@@ -13,6 +14,8 @@ bool isConfigured = false;
 
 const int numFonts = sizeof(charFontMap) / sizeof(charFontMap[0]);
 const int ALPHBETH_LENGTH = 38;
+
+// extern void wifiManager_init();
 // Map grid position to LED index in zigzag pattern
 int mapLED(int row, int col)
 {
@@ -142,21 +145,11 @@ void drawChar(char character, int startRow, int startCol, CRGB color, FontSize s
   }
 }
 
-// void displayStaticText(const char *text, int startRow, int startCol, CRGB color, FontSize size = FS5)
-// {
-//   int charWidth = charWidthMap[size] + charSpaceMap[size]; // Include spacing
-//   while (*text)
-//   {
-//     drawChar(*text++, startRow, startCol, color, size);
-//     startCol += charWidth;
-//   }
-//   drawToScreen();
-// }
-// Display static text
-void displayStaticText(const char *text, int startRow, int startCol, CRGB color, FontSize size = FS5, int charSpacing = -1, int wordSpacing = 1, CRGB *charColors = nullptr, int colorsLength = 0, bool useGradient = false, CRGB gradientStart = CRGB::Black, CRGB gradientEnd = CRGB::Black)
+
+void displayStaticText(const char *text, TextConfig config)
 {
-  int cspace = charSpacing == -1 ? charSpaceMap[size] : charSpacing;
-  int charWidth = charWidthMap[size] + cspace; // Include spacing
+  int cspace = config.charSpacing == -1 ? charSpaceMap[config.fontSize] : config.charSpacing;
+  int charWidth = charWidthMap[config.fontSize] + cspace; // Include spacing
   // int cc = 0;
   // while (*text)
   // {
@@ -175,8 +168,8 @@ void displayStaticText(const char *text, int startRow, int startCol, CRGB color,
   //  int charWidth = charWidthMap[size] + charSpaceMap[size]; // Include spacing
   while (*text)
   {
-    drawChar(*text++, startRow, startCol, color, size, useGradient, gradientStart, gradientEnd);
-    startCol += charWidth;
+    drawChar(*text++, config.startRow, config.startCol, config.color, config.fontSize, config.useGradient, config.color, config.gradientEnd);
+    config.startCol += charWidth;
   }
   //   drawToScreen();
   drawToScreen();
@@ -206,53 +199,36 @@ const char *configureScrollingText(const char *text, ScrollDirection direction)
   return reversed;
 }
 
+void initStaticText(
+    ScrollingText &text,
+    const char *scrollingText,
+    TextConfig config
+   )
+{
+  text.scrollingText = scrollingText;
+  config.animate = false;
+  text.config = config;
+}
+
 void initAsyncScrollingText(
     ScrollingText &text,
     const char *scrollingText,
-    const char *staticText,
-    CRGB scrollColor,
-    CRGB staticColor,
-    FontSize scrollSize,
-    FontSize staticSize,
+    TextConfig config,
     int scrollSpeed,
-    int startX,
-    int startY,
     ScrollDirection scrollDirection,
     int scrollTo,
-    int staticStartX,
-    int staticStartY,
-    bool wrapAround,
-    int charSpacing,
-    int wordSpacing,
-    CRGB *charColors,
-    int colorsLength,
-    bool useGradient,
-    CRGB gradientStart,
-    CRGB gradientEnd){
+    bool wrapAround)
+{
   text.scrollingText = configureScrollingText(scrollingText, scrollDirection);
-  text.staticText = staticText;
-  text.scrollColor = scrollColor;
-  text.staticColor = staticColor;
-  text.scrollSize = scrollSize;
-  text.staticSize = staticSize;
+  config.animate = true;
+  text.config = config;
   text.scrollSpeed = scrollSpeed;
-  text.startX = startX;
-  text.startY = startY;
   text.scrollDirection = scrollDirection;
   text.scrollTo = scrollTo;
-  text.staticStartX = staticStartX;
-  text.staticStartY = staticStartY;
   text.wrapAround = wrapAround;
   text.offset = 0;
-  text.wordSpacing = wordSpacing;
-  text.charSpacing = charSpacing;
   text.lastUpdate = millis();
   text.isComplete = false;
-  text.charColors = charColors;
-  text.useGradient = useGradient;
-  text.gradientStart = gradientStart;
-  text.gradientEnd = gradientEnd;
-  text.colorsLength = colorsLength;
 }
 
 // Update the scrolling text asynchronously
@@ -263,14 +239,14 @@ void updateAsyncScrollingText(ScrollingText &text)
   {
     text.lastUpdate = currentTime;
     bool noOffset = false;
-    int charSpacing = text.charSpacing == -1 ? charSpaceMap[text.scrollSize] : text.charSpacing;
-    int charWidth = charWidthMap[text.scrollSize] + charSpacing;
-    int charHeight = charHeightMap[text.scrollSize];
+    int charSpacing = text.config.charSpacing == -1 ? charSpaceMap[text.config.fontSize] : text.config.charSpacing;
+    int charWidth = charWidthMap[text.config.fontSize];
+    int charHeight = charHeightMap[text.config.fontSize];
     int scrollingTextLength = strlen(text.scrollingText);
-    int colStartOffset = text.startY;
-    int rowStartOffset = ROWS - text.startX;
+    int colStartOffset = text.config.startCol;
+    int rowStartOffset = ROWS - text.config.startRow;
     int scrollDistance = (text.scrollDirection == LEFT_TO_RIGHT || text.scrollDirection == RIGHT_TO_LEFT)
-                             ? scrollingTextLength * charWidth + colStartOffset
+                             ? scrollingTextLength * (charWidth + charWidth * 1.3)
                              : scrollingTextLength * charHeight + rowStartOffset;
 
     int clearStartRow, clearEndRow, clearStartCol, clearEndCol;
@@ -279,27 +255,28 @@ void updateAsyncScrollingText(ScrollingText &text)
     if (text.scrollDirection == LEFT_TO_RIGHT || text.scrollDirection == RIGHT_TO_LEFT)
     {
       // For horizontal scrolling
-      clearStartRow = text.startX;
-      clearEndRow = text.startX + charHeightMap[text.scrollSize] - 1;
+      clearStartRow = text.config.startRow;
+      clearEndRow = text.config.startRow + charHeightMap[text.config.fontSize] - 1;
 
       // Previous position plus character width
       int prevOffset = text.offset - 1;
       if (text.scrollDirection == LEFT_TO_RIGHT)
       {
-        clearStartCol = text.startY;
-        clearEndCol = (text.startY + text.offset) + charWidth;
+        clearStartCol = text.config.startCol;
+        int scrollTo = text.scrollTo > -1 ? text.scrollTo : scrollDistance;
+        clearEndCol = (scrollTo + text.offset) + charWidth;
       }
       else
       {
-        clearStartCol = (text.startY - text.offset) - charWidth;
+        clearStartCol = (text.config.startCol - text.offset) - charWidth;
         clearEndCol = prevOffset + scrollingTextLength * charWidth;
       }
     }
     else
     {
       // For vertical scrolling
-      clearStartCol = text.startY;
-      clearEndCol = text.startY + charWidthMap[text.scrollSize] - 1;
+      clearStartCol = text.config.startCol;
+      clearEndCol = text.config.startCol + charWidthMap[text.config.fontSize] - 1;
 
       int prevOffset = text.offset - 1;
       if (text.scrollDirection == TOP_TO_BOTTOM)
@@ -317,9 +294,6 @@ void updateAsyncScrollingText(ScrollingText &text)
     // Clear only the necessary region
     clearScreen(clearStartRow, clearEndRow, clearStartCol, clearEndCol);
 
-    // Draw the static text
-    displayStaticText(text.staticText, text.staticStartX, text.staticStartY, text.staticColor, text.staticSize, text.charSpacing, text.wordSpacing, text.charColors, text.colorsLength, text.useGradient, text.gradientStart, text.gradientEnd);
-
     // Draw the scrolling text
     for (int i = 0; i < scrollingTextLength; i++)
     {
@@ -329,12 +303,12 @@ void updateAsyncScrollingText(ScrollingText &text)
       if (text.scrollDirection == LEFT_TO_RIGHT)
       {
         // startCol = (text.startY + text.offset) - i * charWidth;
-        startCol = text.startY + text.offset;
+        startCol = text.config.startCol + text.offset;
         for (int j = 0; j < i; j++)
         {
           if (text.scrollingText[j] == ' ')
           {
-            startCol -= text.wordSpacing;
+            startCol -= text.config.wordSpacing;
           }
           else
           {
@@ -354,20 +328,21 @@ void updateAsyncScrollingText(ScrollingText &text)
           }
         }
 
-        if (startCol <= COLS && startCol >= text.startY)
+        if (startCol <= COLS && startCol >= text.config.startCol)
         {
-          drawChar(text.scrollingText[i], text.startX, startCol, text.scrollColor, text.scrollSize);
+          
+          drawChar(text.scrollingText[i], text.config.startRow, startCol, text.config.color, text.config.fontSize);
         }
       }
       else if (text.scrollDirection == RIGHT_TO_LEFT)
       {
         // startCol = (colStartOffset - text.offset) + i * charWidth;
-        startCol = text.startY - text.offset;
+        startCol = text.config.startCol - text.offset;
         for (int j = 0; j < i; j++)
         {
           if (text.scrollingText[j] == ' ')
           {
-            startCol += text.wordSpacing;
+            startCol += text.config.wordSpacing;
           }
           else
           {
@@ -387,10 +362,10 @@ void updateAsyncScrollingText(ScrollingText &text)
           }
         }
 
-        if (startCol >= 0 && startCol < text.startY)
+        if (startCol >= 0 && startCol < text.config.startCol)
         {
 
-          drawChar(text.scrollingText[i], text.startX, startCol, text.scrollColor, text.scrollSize);
+          drawChar(text.scrollingText[i], text.config.startRow, startCol, text.config.color, text.config.fontSize);
         }
       }
       else if (text.scrollDirection == TOP_TO_BOTTOM)
@@ -401,7 +376,7 @@ void updateAsyncScrollingText(ScrollingText &text)
         {
           if (text.scrollingText[j] == ' ')
           {
-            startRow += text.wordSpacing;
+            startRow += text.config.wordSpacing;
           }
           else
           {
@@ -423,8 +398,7 @@ void updateAsyncScrollingText(ScrollingText &text)
 
         if (startRow < ROWS && startRow >= 0)
         {
-
-          drawChar(text.scrollingText[i], startRow, text.startY, text.scrollColor, text.scrollSize);
+          drawChar(text.scrollingText[i], startRow, text.config.startCol, text.config.color, text.config.fontSize);
         }
       }
       else if (text.scrollDirection == BOTTOM_TO_TOP)
@@ -435,7 +409,7 @@ void updateAsyncScrollingText(ScrollingText &text)
         {
           if (text.scrollingText[j] == ' ')
           {
-            startRow -= text.wordSpacing;
+            startRow -= text.config.wordSpacing;
           }
           else
           {
@@ -459,9 +433,9 @@ void updateAsyncScrollingText(ScrollingText &text)
         {
           if (text.scrollingText[i] == ' ')
           {
-            startRow = (rowStartOffset - text.offset) + i * text.wordSpacing;
+            startRow = (rowStartOffset - text.offset) + i * text.config.wordSpacing;
           }
-          drawChar(text.scrollingText[i], startRow, text.startY, text.scrollColor, text.scrollSize);
+          drawChar(text.scrollingText[i], startRow, text.config.startCol, text.config.color, text.config.fontSize);
         }
       }
     }
@@ -485,62 +459,42 @@ void updateAsyncScrollingText(ScrollingText &text)
   }
 }
 
-// void setup()
-// {
-//   FastLED.addLeds<WS2812, LED_PIN, GRB>(leds, NUM_LEDS);
-//   FastLED.setBrightness(BRIGHTNESS);
-//   CRGB colors[] = {CRGB::Red, CRGB::Green, CRGB::Orange, CRGB::Yellow};
-
-//   // Horizontal layout settings
-//   initAsyncScrollingText(dynamicText[1], "DOMINO SCORE BOARD", "V01", CRGB::Red, CRGB::Yellow, FS6, FS3, 100, 0, 10, RIGHT_TO_LEFT, -1, 0, 18, true, -1, 1, colors, 4);
-//   // initAsyncScrollingText(dynamicText[2], "CENTRAL UNITED", "209", CRGB::Blue, CRGB::Red, FS3, FS2, 100, 5, 0, LEFT_TO_RIGHT, 13, 6, 18, true);
-
-//   // Vertical layout settings
-//   // initAsyncScrollingText(text1, "TEAM A", "O", CRGB::Blue, CRGB::Blue, 3, 2, 100, 0, 18, RIGHT_TO_LEFT, -1, 5, 3, true);
-//   // initAsyncScrollingText(text2, "TEAM B", "O", CRGB::Green, CRGB::Red, 3, 2, 100, 0, 0, RIGHT_TO_LEFT, 18, 5, 22, true);
-
-//   WiFi.softAP("esp-captive");
-//   dnsServer.start(53, "*", WiFi.softAPIP());
-//   server.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER); // only when requested from AP
-//   // more handlers...
-//   server.begin();
 
 void setup()
 {
   FastLED.addLeds<WS2812, LED_PIN, GRB>(leds, NUM_LEDS);
   FastLED.setBrightness(BRIGHTNESS);
-
   // Default display configuration
+
   if (!isConfigured)
   {
     CRGB colors[] = {CRGB::Red, CRGB::Green, CRGB::Blue, CRGB::Yellow};
+    TextConfig config = {
+        FS6, // fontSize
+        1,  // startRow
+        25, // startCol
+        2,  // wordSpacing
+        1,  // charSpacing
+        CRGB::Blue, // color
+        CRGB::Black, // gradientEnd
+        colors, // charColors
+        false, // isGradient
+        0}; // colorsLength
     initAsyncScrollingText(
         dynamicText[0],
         "SCOREHIVE BY DOMINO101",
-        "",
-        CRGB::Yellow,
-        CRGB::Yellow,
-        FS6,
-        FS3,
-        100, // scroll speed
-        1,   // startX
-        25,  // startY
-        RIGHT_TO_LEFT,
-        0,   // scrollTo
-        0,    // staticStartX
-        18,   // staticStartY
-        true, // wrapAround
-        -1,   // charSpacing
-        1,    // wordSpacing
-        colors,
-        4 // colors length
-    );
+        config,
+        100, // scrollSpeed
+        RIGHT_TO_LEFT, // scrollDirection
+        -1, // scrollTo
+        true // wrapAround
+        );
   }
 
   WiFi.softAP("ScoreHive-Setup");
   WiFi.setHostname("score_hive");
   dnsServer.start(53, "*", WiFi.softAPIP());
-  // Add this line to initialize all web routes
+
   setupWebServer();
   server.addHandler(new CaptiveRequestHandler()).setFilter(ON_AP_FILTER);
   server.begin();
@@ -548,6 +502,8 @@ void setup()
 
 void loop()
 {
+
+
   if (!isConfigured)
   {
     // Show default welcome message
@@ -570,9 +526,17 @@ void loop()
     {
       for (int i = 0; i < validEntries; i++)
       {
-        updateAsyncScrollingText(dynamicText[i]);
+        if (dynamicText[i].config.animate)
+        {
+          updateAsyncScrollingText(dynamicText[i]);
+        }
+        else
+        {
+          displayStaticText(dynamicText[i].scrollingText, dynamicText[i].config);
+        }
       }
     }
   }
   dnsServer.processNextRequest();
 }
+

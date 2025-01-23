@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+       <title>Score Management</title>
+       <style>
+              body {
+                     font-family: Arial, sans-serif;
+                     padding: 20px;
+                     background-color: #f0f0f0;
+                     max-width: 800px;
+                     margin: 0 auto;
+              }
+
+              .team-box {
+                     border: 1px solid #ddd;
+                     padding: 20px;
+                     margin: 20px 0;
+                     border-radius: 5px;
+                     background-color: white;
+                     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+              }
+
+              .score-btn {
+                     padding: 12px 24px;
+                     margin: 5px;
+                     cursor: pointer;
+                     border: none;
+                     border-radius: 4px;
+                     font-size: 16px;
+                     font-weight: bold;
+                     transition: background-color 0.3s;
+              }
+
+              .score-btn.plus {
+                     background-color: #4CAF50;
+                     color: white;
+              }
+
+              .score-btn.minus {
+                     background-color: #f44336;
+                     color: white;
+              }
+
+              .score-btn:hover {
+                     opacity: 0.9;
+              }
+
+              h2 {
+                     color: #333;
+                     margin-top: 0;
+              }
+
+              h3 {
+                     color: #666;
+              }
+       </style>
+</head>
+
+<body>
+       <div class="team-box">
+              <h2 id="teamAName"></h2>
+              <h3>Current Score: <span id="scoreA">0</span></h3>
+              <button class="score-btn plus" onclick="updateScore('A', 1)">+1</button>
+              <button class="score-btn minus" onclick="updateScore('A', -1)">-1</button>
+       </div>
+
+       <div class="team-box">
+              <h2 id="teamBName"></h2>
+              <h3>Current Score: <span id="scoreB">0</span></h3>
+              <button class="score-btn plus" onclick="updateScore('B', 1)">+1</button>
+              <button class="score-btn minus" onclick="updateScore('B', -1)">-1</button>
+       </div>
+
+       <script>
+              function updateScore(team, change) {
+                     fetch('/api/score/update', {
+                            method: 'POST',
+                            headers: {
+                                   'Content-Type': 'application/x-www-form-urlencoded'
+                            },
+                            body: `team=${team}&score=${change}`
+                     })
+                            .then(response => response.json())
+                            .then(data => {
+                                   if (data.status === 'updated') {
+                                          location.reload();
+                                   }
+                            });
+              }
+       </script>
+</body>
+
+</html>

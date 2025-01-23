@@ -1,31 +1,36 @@
-#include "scoreboard_controller.h"
 #include "header.h"
+#include "scoreboard_controller.h"
 
 extern ScrollingText dynamicText[];
 extern TeamConfig teamA;
 extern TeamConfig teamB;
-void updateTeam(const char* team)
+void updateTeam(const char *team)
 {
     if (strcmp(team, "A") == 0)
     {
         initAsyncScrollingText(dynamicText[0],
-                               teamA.name,      // Dynamic team name
-                               teamA.score,     // Dynamic score
-                               teamA.teamColor, // Dynamic team color
-                               teamA.scoreColor, // Dynamic team color
-                               FS5, FS2, 100, 0, 12,
-                               RIGHT_TO_LEFT, -1, 0, 19, true,0);
+                               teamA.name, // Dynamic team name
+                               teamA.settings,
+                               100, // Dynamic score
+                               RIGHT_TO_LEFT, -1, true);
+        initStaticText(
+            dynamicText[1],
+            teamA.score.score,
+            teamA.score.settings);
     }
-    
     else if (strcmp(team, "B") == 0)
     {
-        initAsyncScrollingText(dynamicText[1],
-                               teamB.name,         // Dynamic team name
-                               teamB.score,        // Dynamic score
-                               teamB.teamColor,    // Dynamic team color
-                               teamB.scoreColor, // Dynamic team color
-                               FS4, FS2, 100, 5, 0,
-                               LEFT_TO_RIGHT, 14, 6, 19, true,0);
+        initAsyncScrollingText(dynamicText[2],
+                               teamB.name, // Dynamic team name
+                               teamB.settings,
+                               100,
+                               LEFT_TO_RIGHT,
+                               -1,
+                               true);
+        initStaticText(
+            dynamicText[3],
+            teamB.score.score,
+            teamB.score.settings);
     }
 }
 
